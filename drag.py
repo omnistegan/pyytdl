@@ -12,7 +12,8 @@ class MainWindow(Gtk.Window):
 
         self.set_default_size(250, 250)
 
-        box = Gtk.Box()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.set_homogeneous(False)
         self.add(box)
 
         self.drop_area = DropArea()
@@ -23,7 +24,7 @@ class MainWindow(Gtk.Window):
         self.drop_area.drag_dest_add_text_targets()
 
         self.progressbar = Gtk.ProgressBar()
-        box.pack_start(self.progressbar, True, True, 0)
+        box.pack_start(self.progressbar, False, False, 0)
 
         self.timeout_id = GObject.timeout_add(50, self.on_timeout, None)
 
@@ -33,9 +34,10 @@ class MainWindow(Gtk.Window):
         Update value on the progress bar
         """
         try:
-            self.progressbar.set_fraction(self.video.percent_downloaded)
-            print(self.video.percent_downloaded)
-        except AttributeError:
+            if self.q.empty() == False:
+                percent = self.q.get()
+            self.progressbar.set_fraction(percent)
+        except:
             pass
 
         # As this is a timeout function, return True so that it
@@ -45,7 +47,7 @@ class MainWindow(Gtk.Window):
 
     def create_video_instance(self, url):
         self.video = Video(url)
-        self.video.download_and_play_av()
+        self.q = self.video.download_and_play_av()
 
 
 

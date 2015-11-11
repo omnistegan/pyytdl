@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 from time import sleep
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from glob import glob
 
 
@@ -64,7 +64,7 @@ class Video():
         format_filesize.sort(key=lambda tup: tup[1], reverse=True)
         return format_filesize[0][0]
 
-    def download(self, avformat):
+    def download(self, avformat, q):
         options = {
             'noplaylist': True,
             'format': avformat,
@@ -77,11 +77,11 @@ class Video():
 
     def status_hook(self, ytdl_ob):
         if ytdl_ob['status'] == 'finished':
-            self.percent_downloaded = 1.0
+            self.q.put(1.0)
             print('Youtube Download: Finished downloading')
         if ytdl_ob['status'] == 'downloading':
-            self.percent_downloaded = ytdl_ob['downloaded_bytes']/ytdl_ob['total_bytes']
-            print('\n' + str(self.percent_downloaded))
+            percent = ytdl_ob['downloaded_bytes']/ytdl_ob['total_bytes']
+            self.q.put(percent)
 
     def play_with_mpv(self, timeout=10):
         # Wait for the file to appear
@@ -110,12 +110,15 @@ class Video():
                 break
         # Play the file with mpv, --keep-open is used to not close the file if it reaches EOF due to slow download
         subprocess.call(['mpv', video_file_path, '--really-quiet' , '--keep-open'])
+        self.q.put(0.0)
         self.download_process.terminate()
 
 
     def download_and_play_av(self):
-        self.download_process = start_thread(self.download, self.find_best_av())
+        self.q = Queue()
+        self.download_process = start_thread(self.download, self.find_best_av(), self.q)
         self.mpv_process = start_thread(self.play_with_mpv, )
+        return self.q
 
 
     def download_and_mux_best_av(self, max_height=1080):
@@ -125,6 +128,7 @@ class Video():
         except:
             self.download_and_play_av()
 
+
     def __init__(self, url):
         with youtube_dl.YoutubeDL() as ydl:
             self.results = ydl.extract_info(url, download = False)
@@ -132,4 +136,3 @@ class Video():
         self.formats = self.return_formats()
         self.id = self.results['id']
         self.video_file_path = ''
-        self.percent_downloaded = 0.1
