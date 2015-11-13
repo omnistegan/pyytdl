@@ -6,7 +6,6 @@ from youtube import *
 
 class MainWindow(Gtk.Window):
 
-
     def __init__(self):
         Gtk.Window.__init__(self, title="Drag and Drop")
 
@@ -28,7 +27,6 @@ class MainWindow(Gtk.Window):
 
         self.timeout_id = GObject.timeout_add(50, self.on_timeout, None)
 
-
     def on_timeout(self, user_data):
         """
         Update value on the progress bar
@@ -44,11 +42,9 @@ class MainWindow(Gtk.Window):
         # continues to get called
         return True
 
-
     def create_video_instance(self, url):
         self.video = Video(url)
         self.q = self.video.download_and_play_av()
-
 
 
 class DropArea(Gtk.Label):
@@ -59,10 +55,10 @@ class DropArea(Gtk.Label):
 
         self.connect("drag-data-received", self.on_drag_data_received)
 
-
-    def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
+    def on_drag_data_received(
+        self, widget, drag_context, x, y, data, info, time
+            ):
         win.create_video_instance(data.get_text())
-
 
 
 if __name__ == '__main__':
