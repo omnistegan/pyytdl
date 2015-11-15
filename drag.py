@@ -7,6 +7,9 @@ from youtube import *
 class MainWindow(Gtk.Window):
 
     def __init__(self):
+        """
+        Initialize the gtk window
+        """
         Gtk.Window.__init__(self, title="Youtube Drag and Drop")
 
         self.set_default_size(250, 250)
@@ -28,6 +31,10 @@ class MainWindow(Gtk.Window):
         self.timeout_id = GObject.timeout_add(50, self.on_timeout, None)
 
     def on_timeout(self, user_data):
+        """
+        Set parameters for updating the progress bar
+        """
+        # Check if the Video object exists and that the Queue is not empty.
         if (
             hasattr(self.drop_area, 'v') and
             self.drop_area.v.q.empty() == False

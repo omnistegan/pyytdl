@@ -11,6 +11,7 @@ DOWNLOAD_FOLDER = os.path.expanduser('~/Downloads/Youtube/')
 
 
 def start_thread(function, *args):
+    # Start and return a process with *args
     process = Process(target=function, args=args)
     process.start()
     return process
@@ -23,6 +24,12 @@ def cleanup(path, size=100000000):
 
 
 class Video():
+
+    """
+    This class sets the necessary options and provides two functions:
+     - starting the download
+     - playing the file.
+    """
 
     def __init__(self, url, avformat='best', watch=True):
         if '+' in avformat:
@@ -49,14 +56,24 @@ class Video():
             self.media_player_thread = start_thread(self.watch_now, )
 
     def status_hook(self, hook_dict):
+        # Places the status hook dict into the Queue
         self.q.put(hook_dict)
 
     def download_video(self):
+        # extract_info returns a dict of info regarding the url submitted
         results = self.ydl.extract_info(self.url, process=True, download=False)
         self.q.put(results)
         results = self.ydl.process_ie_result(results, download=True)
 
     def watch_now(self, timeout=10):
+        """
+        This function controls ensuring the file exists and
+        is large enough to begin playing.
+        Calls at the end of this function terminate
+        the download process and reset the progress bars.
+        """
+        # Set the media player arguments
+        media_player_subprocess_args = ['mpv', '--really-quiet', '--keep-open']
         # Wait for the file to appear
         count = timeout*100
         while count >= 0:
@@ -73,8 +90,7 @@ class Video():
         video_file_path = [n for n in glob(
             DOWNLOAD_FOLDER + '*' + self.results['id'] + '*'
             ) if os.path.isfile(n)][0]
-        media_player_subprocess_args = [
-            'mpv', video_file_path, '--really-quiet', '--keep-open']
+        media_player_subprocess_args.append(video_file_path)
         # Wait for the file to be large enough to play (~4MB)
         count = timeout*100
         while count >= 0:
@@ -84,9 +100,11 @@ class Video():
                 sleep(.01)
                 count -= 1
             if count == 0:
+                # If we timeout, the media player will still be called
                 break
         # Play the file with mpv
         subprocess.call(media_player_subprocess_args)
+        # Cleanup download_thread, progress bar, and file on disk
         self.download_thread.terminate()
         self.q.put({'status': 'media_player_terminate', 'fraction': 0.0})
         cleanup(video_file_path)
