@@ -35,6 +35,7 @@ class Video():
         if '+' in avformat:
             watch = False
         self.q = Queue()
+        self.resultsq = Queue()
         self.url = url
         self.options = {
             'noplaylist': True,
@@ -46,11 +47,12 @@ class Video():
             'progress_hooks': [self.status_hook],
         }
         self.ydl = youtube_dl.YoutubeDL(self.options)
-        self.download_thread = start_thread(self.download_video, )
+        self.download_thread = start_thread(self.download_video, watch)
         while True:
             # Take the first result to enter Queue, which will be the info_dict
-            if self.q.empty() == False:
-                self.results = self.q.get()
+            if self.resultsq.empty() == False:
+                self.results = self.resultsq.get()
+                self.id = self.results['id']
                 break
         if watch:
             self.media_player_thread = start_thread(self.watch_now, )
@@ -59,11 +61,14 @@ class Video():
         # Places the status hook dict into the Queue
         self.q.put(hook_dict)
 
-    def download_video(self):
+    def download_video(self, watch=True):
         # extract_info returns a dict of info regarding the url submitted
         results = self.ydl.extract_info(self.url, process=True, download=False)
-        self.q.put(results)
+        self.resultsq.put(results)
+        self.id = results['id']
         results = self.ydl.process_ie_result(results, download=True)
+        if watch is False:
+            self.watch_now()
 
     def watch_now(self, timeout=10):
         """
@@ -78,7 +83,7 @@ class Video():
         count = timeout*100
         while count >= 0:
             if ([n for n in glob(
-                    DOWNLOAD_FOLDER + '*' + self.results['id'] + '*'
+                    DOWNLOAD_FOLDER + '*' + self.id + '*'
                     ) if os.path.isfile(n)] != []):
                 break
             else:
@@ -88,7 +93,7 @@ class Video():
                 exit()
         # Use glob to select the full correct filename to use
         video_file_path = [n for n in glob(
-            DOWNLOAD_FOLDER + '*' + self.results['id'] + '*'
+            DOWNLOAD_FOLDER + '*' + self.id + '*'
             ) if os.path.isfile(n)][0]
         media_player_subprocess_args.append(video_file_path)
         # Wait for the file to be large enough to play (~4MB)
@@ -105,6 +110,7 @@ class Video():
         # Play the file with mpv
         subprocess.call(media_player_subprocess_args)
         # Cleanup download_thread, progress bar, and file on disk
-        self.download_thread.terminate()
+        if hasattr(self, 'download_thread'):
+            self.download_thread.terminate()
         self.q.put({'status': 'media_player_terminate', 'fraction': 0.0})
         cleanup(video_file_path)

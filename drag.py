@@ -68,7 +68,9 @@ class DropArea(Gtk.Label):
     def on_drag_data_received(
         self, widget, drag_context, x, y, data, info, time
             ):
-        self.v = Video(data.get_text())
+        avformat = 'best'
+#        avformat = 'bestvideo+bestaudio'
+        self.v = Video(data.get_text(), avformat=avformat)
 
 
 if __name__ == '__main__':
