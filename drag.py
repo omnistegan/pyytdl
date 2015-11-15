@@ -7,7 +7,7 @@ from youtube import *
 class MainWindow(Gtk.Window):
 
     def __init__(self):
-        Gtk.Window.__init__(self, title="Drag and Drop")
+        Gtk.Window.__init__(self, title="Youtube Drag and Drop")
 
         self.set_default_size(250, 250)
 
@@ -28,23 +28,26 @@ class MainWindow(Gtk.Window):
         self.timeout_id = GObject.timeout_add(50, self.on_timeout, None)
 
     def on_timeout(self, user_data):
-        """
-        Update value on the progress bar
-        """
-        try:
-            if self.q.empty() == False:
-                percent = self.q.get()
-            self.progressbar.set_fraction(percent)
-        except:
-            pass
-
-        # As this is a timeout function, return True so that it
-        # continues to get called
+        if (
+            hasattr(self.drop_area, 'v') and
+            self.drop_area.v.q.empty() == False
+        ):
+            hook = self.drop_area.v.q.get()
+            if (
+                hook['status'] == 'downloading' and
+                hook['downloaded_bytes'] > 4000000
+            ):
+                percent = (
+                    hook['downloaded_bytes'] /
+                    hook['total_bytes']
+                    )
+                self.progressbar.set_fraction(percent)
+            elif hook['status'] == 'media_player_terminate':
+                self.progressbar.set_fraction(hook['fraction'])
+            else:
+                self.progressbar.set_fraction(
+                    hook['downloaded_bytes'] / 4000000)
         return True
-
-    def create_video_instance(self, url):
-        self.video = Video(url)
-        self.q = self.video.download_and_play_av()
 
 
 class DropArea(Gtk.Label):
@@ -53,12 +56,12 @@ class DropArea(Gtk.Label):
         Gtk.Label.__init__(self)
         self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
 
-        self.connect("drag-data-received", self.on_drag_data_received)
+        self.connect('drag-data-received', self.on_drag_data_received)
 
     def on_drag_data_received(
         self, widget, drag_context, x, y, data, info, time
             ):
-        win.create_video_instance(data.get_text())
+        self.v = Video(data.get_text())
 
 
 if __name__ == '__main__':
