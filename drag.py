@@ -1,7 +1,10 @@
 #!/bin/python
 
-from gi.repository import Gtk, Gdk, GObject
 from youtube import *
+
+from gi import require_version
+require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk, GObject
 
 
 class MainWindow(Gtk.Window):
@@ -15,12 +18,25 @@ class MainWindow(Gtk.Window):
         self.set_default_size(250, 250)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        box.set_homogeneous(False)
         self.add(box)
 
         self.drop_area = DropArea()
 
         box.pack_start(self.drop_area, True, True, 0)
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        hbox.set_homogeneous(True)
+        box.add(hbox)
+
+        button1 = Gtk.RadioButton.new_with_label_from_widget(
+            None, 'Watch')
+        button1.connect('toggled', self.on_button_toggled, 'watch')
+        hbox.pack_start(button1, False, False, 0)
+
+        button2 = Gtk.RadioButton.new_from_widget(button1)
+        button2.set_label('Download')
+        button2.connect('toggled', self.on_button_toggled, 'download')
+        hbox.pack_start(button2, False, False, 0)
 
         self.drop_area.drag_dest_set_target_list(None)
         self.drop_area.drag_dest_add_text_targets()
@@ -30,30 +46,20 @@ class MainWindow(Gtk.Window):
 
         self.timeout_id = GObject.timeout_add(50, self.on_timeout, None)
 
+    def on_button_toggled(self, button, mode):
+        if button.get_active():
+            if mode == 'download':
+                self.drop_area.avformat = 'bestvideo[height<=1080]+bestaudio'
+            elif mode == 'watch':
+                self.drop_area.avformat = 'best'
+
     def on_timeout(self, user_data):
         """
         Set parameters for updating the progress bar
         """
-        # Check if the Video object exists and that the Queue is not empty.
-        if (
-            hasattr(self.drop_area, 'v') and
-            self.drop_area.v.q.empty() == False
-        ):
-            hook = self.drop_area.v.q.get()
-            if (
-                hook['status'] == 'downloading' and
-                hook['downloaded_bytes'] > 4000000
-            ):
-                percent = (
-                    hook['downloaded_bytes'] /
-                    hook['total_bytes']
-                    )
-                self.progressbar.set_fraction(percent)
-            elif hook['status'] == 'media_player_terminate':
-                self.progressbar.set_fraction(hook['fraction'])
-            else:
-                self.progressbar.set_fraction(
-                    hook['downloaded_bytes'] / 4000000)
+        # Check if the Video object exists
+        if hasattr(self.drop_area, 'v'):
+            update_progress_bar(self.drop_area.v, self.progressbar)
         return True
 
 
@@ -65,12 +71,12 @@ class DropArea(Gtk.Label):
 
         self.connect('drag-data-received', self.on_drag_data_received)
 
+        self.avformat = 'best'
+
     def on_drag_data_received(
         self, widget, drag_context, x, y, data, info, time
             ):
-        avformat = 'best'
-#        avformat = 'bestvideo+bestaudio'
-        self.v = Video(data.get_text(), avformat=avformat)
+        self.v = Video(data.get_text(), avformat=self.avformat)
 
 
 if __name__ == '__main__':

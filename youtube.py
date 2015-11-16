@@ -107,6 +107,7 @@ class Video():
             if count == 0:
                 # If we timeout, the media player will still be called
                 break
+        self.q.put({'status': 'downloading', 'downloaded_bytes': 0})
         # Play the file with mpv
         subprocess.call(media_player_subprocess_args)
         # Cleanup download_thread, progress bar, and file on disk
@@ -114,3 +115,22 @@ class Video():
             self.download_thread.terminate()
         self.q.put({'status': 'media_player_terminate', 'fraction': 0.0})
         cleanup(video_file_path)
+
+
+def update_progress_bar(video_obj, progressbar):
+    if video_obj.q.empty() == False:
+        hook = video_obj.q.get()
+        if (
+            hook['status'] == 'downloading' and
+            hook['downloaded_bytes'] > 4000000
+        ):
+            percent = (
+                hook['downloaded_bytes'] /
+                hook['total_bytes']
+                )
+            progressbar.set_fraction(percent)
+        elif hook['status'] == 'media_player_terminate':
+            progressbar.set_fraction(hook['fraction'])
+        else:
+            progressbar.set_fraction(
+                hook['downloaded_bytes'] / 4000000)
