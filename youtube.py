@@ -8,6 +8,7 @@ from time import sleep
 import youtube_dl
 
 DOWNLOAD_FOLDER = os.path.expanduser('~/Downloads/Youtube/')
+BUFFER = 4000000
 
 
 def start_thread(function, *args):
@@ -21,6 +22,7 @@ def cleanup(path, size=100000000):
     # Remove file if it is less than ~100MB
     if os.path.getsize(path) < size:
         os.remove(path)
+        print('Removing ' + path)
 
 
 class Video():
@@ -50,7 +52,7 @@ class Video():
         self.download_thread = start_thread(self.download_video, watch)
         while True:
             # Take the first result to enter Queue, which will be the info_dict
-            if self.resultsq.empty() == False:
+            if self.resultsq.empty() is False:
                 self.results = self.resultsq.get()
                 self.id = self.results['id']
                 break
@@ -96,10 +98,10 @@ class Video():
             DOWNLOAD_FOLDER + '*' + self.id + '*'
             ) if os.path.isfile(n)][0]
         media_player_subprocess_args.append(video_file_path)
-        # Wait for the file to be large enough to play (~4MB)
+        # Wait for the file to be larger than BUFFER
         count = timeout*100
         while count >= 0:
-            if os.path.getsize(video_file_path) > 4000000:
+            if os.path.getsize(video_file_path) > BUFFER:
                 break
             else:
                 sleep(.01)
@@ -118,11 +120,11 @@ class Video():
 
 
 def update_progress_bar(video_obj, progressbar):
-    if video_obj.q.empty() == False:
+    if video_obj.q.empty() is False:
         hook = video_obj.q.get()
         if (
             hook['status'] == 'downloading' and
-            hook['downloaded_bytes'] > 4000000
+            hook['downloaded_bytes'] > BUFFER
         ):
             percent = (
                 hook['downloaded_bytes'] /
@@ -133,4 +135,4 @@ def update_progress_bar(video_obj, progressbar):
             progressbar.set_fraction(hook['fraction'])
         else:
             progressbar.set_fraction(
-                hook['downloaded_bytes'] / 4000000)
+                hook['downloaded_bytes'] / BUFFER)
